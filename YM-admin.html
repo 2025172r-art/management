@@ -1,0 +1,456 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Y.M スーパー開発者パネル</title>
+  <style>
+    :root {
+      --bg:#070b14; --card:#10192b; --card2:#0c1424; --line:#243044; --txt:#e8eef8; --muted:#93a4bd;
+      --acc:#06C755; --acc2:#38bdf8; --warn:#f59e0b; --bad:#ef4444; --ok:#22c55e;
+    }
+    * { box-sizing:border-box; }
+    body { margin:0; font-family:"Hiragino Sans","Noto Sans JP",sans-serif; background:radial-gradient(900px 420px at 8% -10%, rgba(6,199,85,.16), transparent 50%), var(--bg); color:var(--txt); min-height:100dvh; }
+    button, input, textarea, select { font:inherit; color:inherit; }
+    .hidden { display:none !important; }
+    .gate { max-width:460px; margin:8vh auto; background:var(--card); border:1px solid var(--line); border-radius:18px; padding:22px; box-shadow:0 20px 50px rgba(0,0,0,.28); }
+    .k { font-size:10px; letter-spacing:.16em; color:#64748b; font-weight:800; }
+    h1 { margin:6px 0 0; font-size:24px; }
+    p.lead { color:var(--muted); font-size:13px; line-height:1.6; }
+    label { display:block; margin-top:10px; color:var(--muted); font-size:12px; font-weight:700; }
+    input, textarea, select { width:100%; margin-top:6px; padding:10px; border-radius:8px; border:1px solid #334155; background:#0b1220; }
+    textarea { min-height:88px; resize:vertical; }
+    .btn { border:0; border-radius:10px; padding:10px 12px; font-weight:800; cursor:pointer; background:#1e293b; }
+    .btn.go { background:var(--acc); color:#052e16; }
+    .btn.bad { background:var(--bad); color:#fff; }
+    .btn.warn { background:var(--warn); color:#111; }
+    .btn.full { width:100%; margin-top:10px; }
+    .row { display:flex; gap:8px; flex-wrap:wrap; }
+    .row > * { flex:1; min-width:120px; }
+    .app { display:none; min-height:100dvh; }
+    .app.on { display:grid; grid-template-columns:240px 1fr; }
+    .nav { background:#0b1220; border-right:1px solid var(--line); padding:14px 10px; }
+    .brand { padding:6px 8px 14px; }
+    .nav button.tab { width:100%; text-align:left; background:transparent; color:var(--muted); border:0; border-radius:8px; padding:8px 10px; cursor:pointer; font-weight:700; }
+    .nav button.tab.on { background:#123224; color:#86efac; box-shadow:inset 3px 0 0 var(--acc); }
+    .main { min-width:0; display:flex; flex-direction:column; }
+    .top { display:flex; justify-content:space-between; gap:10px; align-items:center; padding:12px 16px; border-bottom:1px solid var(--line); }
+    .sync { font-size:12px; font-weight:800; padding:6px 10px; border-radius:999px; background:#102033; }
+    .sync.ok { color:#86efac; } .sync.wait { color:#fde68a; } .sync.bad { color:#fecaca; }
+    .view { display:none; padding:16px; }
+    .view.on { display:block; }
+    .kpis { display:grid; grid-template-columns:repeat(4,minmax(0,1fr)); gap:10px; }
+    .card, .kpi { background:var(--card); border:1px solid var(--line); border-radius:14px; padding:12px; }
+    .kpi .n { font-size:24px; font-weight:900; margin-top:4px; }
+    .grid2 { display:grid; grid-template-columns:1.2fr .8fr; gap:12px; margin-top:12px; }
+    table { width:100%; border-collapse:collapse; font-size:13px; }
+    th, td { text-align:left; padding:8px; border-bottom:1px solid var(--line); vertical-align:top; }
+    th { color:var(--muted); font-size:11px; }
+    .tools { display:flex; gap:8px; flex-wrap:wrap; margin:10px 0; }
+    .mini { width:auto; padding:7px 10px; }
+    pre, .log { white-space:pre-wrap; background:#020617; border-radius:8px; padding:10px; color:#cbd5e1; font-size:12px; max-height:280px; overflow:auto; }
+    .bar { height:8px; background:#1e293b; border-radius:99px; overflow:hidden; }
+    .bar span { display:block; height:100%; background:linear-gradient(90deg, var(--acc), var(--acc2)); }
+    .toast { position:fixed; right:16px; bottom:16px; background:#052e16; color:#dcfce7; border:1px solid #166534; padding:10px 14px; border-radius:10px; display:none; z-index:20; font-weight:800; }
+    @media (max-width:860px) { .app.on { grid-template-columns:1fr; } .kpis, .grid2 { grid-template-columns:1fr 1fr; } .nav { display:flex; gap:6px; overflow:auto; } .nav button.tab { width:auto; white-space:nowrap; } }
+  </style>
+</head>
+<body>
+  <div class="gate" id="gate">
+    <div class="k">Y.M CONTROL OS</div>
+    <h1>スーパー開発者パネル</h1>
+    <p class="lead">本体と同じブラウザの保管庫を読み、変更は命令バスでチャットへ戻します。ユーザー名 YM、パスワードはこれまでの開発者パネルと同じです。</p>
+    <label>ユーザー名<input id="user" autocomplete="username" value="YM"></label>
+    <label>パスワード<input id="pass" type="password" autocomplete="current-password"></label>
+    <button class="btn go full" id="btn-login" type="button">入る</button>
+    <pre id="gate-out">まだ入っていません。</pre>
+  </div>
+  <div class="gate hidden" id="creator-gate">
+    <div class="k">CREATOR</div>
+    <h1>作成者の確認</h1>
+    <p class="lead">コイン・停止・削除は合言葉のあとだけ実行します。</p>
+    <label>合言葉<input id="creator-word" type="password"></label>
+    <button class="btn warn full" id="btn-creator" type="button">確認する</button>
+    <button class="btn full" id="btn-creator-back" type="button">戻る</button>
+  </div>
+  <div class="app" id="app">
+    <aside class="nav">
+      <div class="brand"><div class="k">Y.M CONTROL</div><strong>スーパーパネル</strong></div>
+      <button class="tab on" data-tab="overview" type="button">司令室</button>
+      <button class="tab" data-tab="announce" type="button">お知らせ</button>
+      <button class="tab" data-tab="users" type="button">ユーザー</button>
+      <button class="tab" data-tab="coins" type="button">コイン</button>
+      <button class="tab" data-tab="groups" type="button">グループ</button>
+      <button class="tab" data-tab="messages" type="button">トーク</button>
+      <button class="tab" data-tab="stamps" type="button">スタンプ</button>
+      <button class="tab" data-tab="calendar" type="button">予定</button>
+      <button class="tab" data-tab="reports" type="button">通報と通知</button>
+      <button class="tab" data-tab="maint" type="button">メンテナンス</button>
+      <button class="tab" data-tab="backup" type="button">バックアップ</button>
+    </aside>
+    <section class="main">
+      <div class="top">
+        <strong id="title">司令室</strong>
+        <div class="row" style="justify-content:flex-end;">
+          <span class="sync wait" id="sync">同期待ち</span>
+          <button class="btn mini" id="btn-refresh" type="button">再読込</button>
+          <button class="btn mini" id="btn-exit" type="button">出る</button>
+        </div>
+      </div>
+      <div class="view on" id="overview">
+        <div class="kpis">
+          <div class="kpi"><div class="k">ユーザー</div><div class="n" id="kpi-users">0</div></div>
+          <div class="kpi"><div class="k">停止中</div><div class="n" id="kpi-block">0</div></div>
+          <div class="kpi"><div class="k">グループ</div><div class="n" id="kpi-groups">0</div></div>
+          <div class="kpi"><div class="k">コイン合計</div><div class="n" id="kpi-coins">0</div></div>
+        </div>
+        <div class="grid2">
+          <div class="card">
+            <div class="k">コイン上位</div>
+            <div id="coin-bars"></div>
+          </div>
+          <div class="card">
+            <div class="k">同期の状態</div>
+            <pre id="health">読み込み中</pre>
+          </div>
+        </div>
+      </div>
+      <div class="view" id="announce">
+        <div class="card">
+          <label>みんなへのお知らせ<textarea id="ann" maxlength="1000"></textarea></label>
+          <label>見た目<select id="ann-style"><option value="normal">通常</option><option value="important">重要</option></select></label>
+          <div class="row">
+            <button class="btn go" id="btn-ann" type="button">配信する</button>
+            <button class="btn bad" id="btn-ann-clear" type="button">解除</button>
+          </div>
+        </div>
+      </div>
+      <div class="view" id="users">
+        <div class="tools"><input id="user-q" placeholder="名前かIDで検索" style="max-width:280px;margin:0;"></div>
+        <div class="card" style="overflow:auto;"><table><thead><tr><th>名前</th><th>ID</th><th>コイン</th><th>プラン</th><th>状態</th><th></th></tr></thead><tbody id="user-table"></tbody></table></div>
+        <div class="card" id="user-editor">ユーザーを選ぶと、ここで名前・プラン・コイン・停止を変えられます。</div>
+      </div>
+      <div class="view" id="coins">
+        <div class="card">
+          <label>相手のID<input id="coin-target"></label>
+          <label>枚数<input id="coin-amount" type="number" value="10"></label>
+          <div class="row">
+            <button class="btn go" id="btn-plus" type="button">足す</button>
+            <button class="btn bad" id="btn-minus" type="button">引く</button>
+            <button class="btn warn" id="btn-set" type="button">この枚数にする</button>
+          </div>
+          <pre id="coin-log"></pre>
+        </div>
+      </div>
+      <div class="view" id="groups">
+        <div class="card" style="overflow:auto;"><table><thead><tr><th>名前</th><th>ID</th><th>人数</th><th></th></tr></thead><tbody id="group-table"></tbody></table></div>
+      </div>
+      <div class="view" id="messages">
+        <div class="tools"><input id="msg-q" placeholder="本文を検索" style="max-width:280px;margin:0;"></div>
+        <div class="card" style="overflow:auto;"><table><thead><tr><th>時刻</th><th>送信</th><th>宛先</th><th>本文</th><th></th></tr></thead><tbody id="msg-table"></tbody></table></div>
+      </div>
+      <div class="view" id="stamps">
+        <div class="card" style="overflow:auto;"><table><thead><tr><th>名前</th><th>ID</th><th>価格</th><th></th></tr></thead><tbody id="stamp-table"></tbody></table></div>
+      </div>
+      <div class="view" id="calendar">
+        <div class="card" style="overflow:auto;"><table><thead><tr><th>予定</th><th>ID</th><th></th></tr></thead><tbody id="cal-table"></tbody></table></div>
+        <div class="card"><div class="k">予約送信</div><pre id="sched-log"></pre></div>
+      </div>
+      <div class="view" id="reports">
+        <div class="card">
+          <label>通知タイトル<input id="ntf-title" value="運営から"></label>
+          <label>内容<textarea id="ntf-body"></textarea></label>
+          <button class="btn go" id="btn-ntf" type="button">通知を入れる</button>
+        </div>
+        <div class="card"><div class="k">通報</div><pre id="report-log"></pre></div>
+      </div>
+      <div class="view" id="maint">
+        <div class="card">
+          <label>表示文<textarea id="maint-text" placeholder="いま点検中です"></textarea></label>
+          <div class="row">
+            <button class="btn warn" id="btn-maint-on" type="button">点検を出す</button>
+            <button class="btn go" id="btn-maint-off" type="button">点検を消す</button>
+          </div>
+          <label>表示バージョン<input id="ver" placeholder="1.3.0"></label>
+          <button class="btn" id="btn-ver" type="button">バージョンを保存</button>
+        </div>
+      </div>
+      <div class="view" id="backup">
+        <div class="card">
+          <p class="lead">同じフォルダをローカルサーバーで開くと、本体と自動で同期します。file:// で別々に開くとブラウザが保管庫を分けるので、ここからJSONを書き出して本体側の読み込みに使ってください。</p>
+          <div class="row">
+            <button class="btn go" id="btn-export" type="button">JSONを書き出す</button>
+            <button class="btn" id="btn-copy" type="button">コピー</button>
+          </div>
+          <label>読み込むJSON<textarea id="import-box" placeholder="{ ... }"></textarea></label>
+          <button class="btn warn" id="btn-import" type="button">この内容を命令にする</button>
+          <pre id="export-box"></pre>
+          <div class="k">監査ログ</div>
+          <pre id="audit"></pre>
+        </div>
+      </div>
+    </section>
+  </div>
+  <div class="toast" id="toast"></div>
+  <script>
+  (function () {
+    var USER = 'YM';
+    var PASS = 'yamanesaiki';
+    var CREATOR = 'ym-creator-door';
+    var KEYS = { snap:'YM_PERSIST_SNAPSHOT', ann:'YM_SYSTEM_ANNOUNCEMENT', mirror:'YM_ADMIN_MIRROR', bus:'YM_ADMIN_BUS', audit:'YM_ADMIN_AUDIT', bundle:'YM_ADMIN_BUNDLE', maint:'YM_ADMIN_MAINTENANCE' };
+    var state = { data: blank(), source:'未接続', idb:'未確認', selected:'' };
+    var channel = null;
+    try { channel = new BroadcastChannel('ym-admin'); channel.onmessage = function () { loadAll(); }; } catch (e) {}
+
+    function blank() {
+      return { users:{}, groups:{}, friends:{}, messages:[], stamps:[], reports:[], transactions:[], notifications:[], calendarEvents:[], scheduledMessages:[], systemAnnouncement:'', systemAnnouncementStyle:'normal', announcementId:'', systemVersion:'', maintenance:{on:false,text:''}, savedAt:0, messageCount:0 };
+    }
+    function read(key) { try { return JSON.parse(localStorage.getItem(key) || 'null'); } catch (e) { return null; } }
+    function write(key, value) { localStorage.setItem(key, JSON.stringify(value)); }
+    function toast(text) { var el = document.getElementById('toast'); el.textContent = text; el.style.display = 'block'; setTimeout(function () { el.style.display = 'none'; }, 2200); }
+    function audit(text) {
+      var list = read(KEYS.audit) || [];
+      list.push({ at: Date.now(), text: text });
+      write(KEYS.audit, list.slice(-120));
+    }
+    function creatorOk() { return Number(sessionStorage.getItem('YM_CREATOR_UNTIL') || 0) > Date.now(); }
+    function needCreator(next) {
+      if (creatorOk()) { next(); return; }
+      document.getElementById('app').classList.remove('on');
+      document.getElementById('creator-gate').classList.remove('hidden');
+      document.getElementById('btn-creator').onclick = function () {
+        if (document.getElementById('creator-word').value !== CREATOR) { alert('合言葉が違います'); return; }
+        sessionStorage.setItem('YM_CREATOR_UNTIL', String(Date.now() + 20 * 60 * 1000));
+        document.getElementById('creator-gate').classList.add('hidden');
+        document.getElementById('app').classList.add('on');
+        next();
+      };
+    }
+    function openDb() {
+      return new Promise(function (resolve, reject) {
+        if (!window.indexedDB) return reject(new Error('no idb'));
+        var req = indexedDB.open('YM_Media_Storage');
+        req.onsuccess = function () { resolve(req.result); };
+        req.onerror = function () { reject(req.error || new Error('idb')); };
+      });
+    }
+    function idbGet() {
+      return openDb().then(function (db) {
+        return new Promise(function (resolve, reject) {
+          if (!db.objectStoreNames.contains('appData')) { resolve(null); return; }
+          var tx = db.transaction('appData', 'readonly');
+          var req = tx.objectStore('appData').get('app_db');
+          req.onsuccess = function () { resolve(req.result || null); };
+          req.onerror = function () { reject(req.error); };
+        });
+      });
+    }
+    function idbPatch(mutator) {
+      return openDb().then(function (db) {
+        return new Promise(function (resolve, reject) {
+          if (!db.objectStoreNames.contains('appData')) { resolve(false); return; }
+          var tx = db.transaction('appData', 'readwrite');
+          var store = tx.objectStore('appData');
+          var get = store.get('app_db');
+          get.onsuccess = function () {
+            var cur = get.result;
+            if (!cur || cur.__ymenc) { resolve(false); return; }
+            mutator(cur);
+            store.put(cur, 'app_db');
+          };
+          tx.oncomplete = function () { resolve(true); };
+          tx.onerror = function () { reject(tx.error); };
+        });
+      }).catch(function () { return false; });
+    }
+    function mergeFrom(raw, source) {
+      if (!raw || typeof raw !== 'object') return;
+      var d = state.data;
+      if (raw.users) d.users = Object.assign({}, d.users, raw.users);
+      if (raw.usersMeta) d.users = Object.assign({}, raw.usersMeta, d.users);
+      ['groups','friends'].forEach(function (k) { if (raw[k]) d[k] = raw[k]; });
+      ['messages','stamps','reports','transactions','notifications','calendarEvents','scheduledMessages'].forEach(function (k) {
+        if (Array.isArray(raw[k]) && raw[k].length) d[k] = raw[k];
+      });
+      if (raw.systemAnnouncement || raw.text) d.systemAnnouncement = raw.systemAnnouncement || raw.text || d.systemAnnouncement;
+      if (raw.systemAnnouncementStyle || raw.style) d.systemAnnouncementStyle = raw.systemAnnouncementStyle || raw.style;
+      if (raw.announcementId || raw.id) d.announcementId = raw.announcementId || raw.id || d.announcementId;
+      if (raw.systemVersion) d.systemVersion = raw.systemVersion;
+      if (raw.maintenance) d.maintenance = raw.maintenance;
+      if (raw.messageCount) d.messageCount = raw.messageCount;
+      d.savedAt = raw.at || raw.savedAt || d.savedAt;
+      state.source = source;
+    }
+    function loadAll() {
+      state.data = blank();
+      mergeFrom(read(KEYS.snap), 'スナップショット');
+      mergeFrom(read(KEYS.ann), 'お知らせ');
+      mergeFrom(read(KEYS.mirror), '本体ミラー');
+      mergeFrom(read(KEYS.maint), '点検');
+      idbGet().then(function (row) {
+        state.idb = row ? (row.__ymenc ? '暗号化のため読取のみ不可' : '本体DBに接続') : '本体DBは空';
+        if (row && !row.__ymenc) mergeFrom(row, 'IndexedDB');
+        paint();
+      }).catch(function () { state.idb = '別オリジンか未作成'; paint(); });
+      paint();
+    }
+    function names(id) { var u = state.data.users[id]; return u && u.name ? u.name : id; }
+    function push(type, payload, label) {
+      var bus = read(KEYS.bus) || { rev:0, commands:[] };
+      var cmd = { id:'cmd_' + Date.now() + '_' + Math.floor(Math.random()*999), type:type, payload:payload, at:Date.now() };
+      bus.commands = (bus.commands || []).concat(cmd).slice(-100);
+      bus.rev = Date.now();
+      write(KEYS.bus, bus);
+      write(KEYS.bundle, { at: Date.now(), last: cmd });
+      if (type === 'announce.set') write(KEYS.ann, { text: payload.text || '', style: payload.style || 'normal', id: 'ann_' + Date.now(), at: Date.now() });
+      if (type === 'maintenance.set') write(KEYS.maint, { on: !!payload.on, text: payload.text || '', at: Date.now() });
+      audit(label || type);
+      try { if (channel) channel.postMessage({ type:'command', cmd: cmd }); } catch (e) {}
+      idbPatch(function (db) {
+        if (type === 'announce.set') { db.systemAnnouncement = payload.text || ''; db.systemAnnouncementStyle = payload.style || 'normal'; db.announcementId = 'ann_' + Date.now(); }
+        if (type === 'user.coins' && db.users && db.users[payload.id]) db.users[payload.id].coins = payload.mode === 'set' ? Number(payload.amount) : (Number(db.users[payload.id].coins)||0) + Number(payload.amount||0);
+        if (type === 'user.block' && db.users && db.users[payload.id]) db.users[payload.id].isBlocked = !!payload.blocked;
+        if (type === 'user.rename' && db.users && db.users[payload.id]) db.users[payload.id].name = payload.name;
+        if (type === 'user.plan' && db.users && db.users[payload.id]) db.users[payload.id].planId = payload.planId;
+        if (type === 'maintenance.set') { db.maintenanceMode = !!payload.on; db.maintenanceText = payload.text || ''; }
+      });
+      toast('本体へ送りました');
+      loadAll();
+    }
+    function paint() {
+      var d = state.data;
+      var ids = Object.keys(d.users);
+      var blocked = ids.filter(function (id) { return d.users[id] && d.users[id].isBlocked; }).length;
+      var coins = ids.reduce(function (sum, id) { return sum + (Number(d.users[id].coins) || 0); }, 0);
+      document.getElementById('kpi-users').textContent = ids.length;
+      document.getElementById('kpi-block').textContent = blocked;
+      document.getElementById('kpi-groups').textContent = Object.keys(d.groups || {}).length;
+      document.getElementById('kpi-coins').textContent = coins;
+      var age = d.savedAt ? Math.round((Date.now() - d.savedAt) / 1000) + '秒前' : '記録なし';
+      var sync = document.getElementById('sync');
+      sync.textContent = state.source + ' / ' + age;
+      sync.className = 'sync ' + (d.savedAt && Date.now() - d.savedAt < 15000 ? 'ok' : 'wait');
+      document.getElementById('health').textContent = 'ソース: ' + state.source + '\nIndexedDB: ' + state.idb + '\n最終ミラー: ' + age + '\nメッセージ: ' + (d.messageCount || d.messages.length) + '\nスタンプ: ' + d.stamps.length + '\nバージョン: ' + (d.systemVersion || '—') + '\nお知らせ: ' + (d.systemAnnouncement || 'なし');
+      var max = Math.max.apply(null, ids.map(function (id) { return Number(d.users[id].coins) || 0; }).concat([1]));
+      document.getElementById('coin-bars').innerHTML = ids.sort(function (a,b){ return (d.users[b].coins||0) - (d.users[a].coins||0); }).slice(0,8).map(function (id) {
+        var n = Number(d.users[id].coins) || 0;
+        return '<div style="margin-top:8px;font-size:12px;">' + names(id) + ' ' + n + '<div class="bar"><span style="width:' + Math.round(n / max * 100) + '%"></span></div></div>';
+      }).join('') || 'まだユーザーがいません。本体を開くとここに出ます。';
+      document.getElementById('ann').value = d.systemAnnouncement || '';
+      document.getElementById('ann-style').value = d.systemAnnouncementStyle === 'important' ? 'important' : 'normal';
+      var q = (document.getElementById('user-q').value || '').trim();
+      document.getElementById('user-table').innerHTML = ids.filter(function (id) { return !q || (names(id) + id).indexOf(q) >= 0; }).map(function (id) {
+        var u = d.users[id] || {};
+        return '<tr><td>' + names(id) + '</td><td>' + id + '</td><td>' + (u.coins || 0) + '</td><td>' + (u.planId || 'free') + '</td><td>' + (u.isBlocked ? '停止' : '通常') + '</td><td><button class="btn mini" data-user="' + id + '" type="button">管理</button></td></tr>';
+      }).join('') || '<tr><td colspan="6">ユーザーはまだいません</td></tr>';
+      document.getElementById('coin-log').textContent = (d.transactions || []).slice(-8).map(function (x) { return (x.target || x.id || '') + ' ' + (x.amount || 0); }).join('\n') || 'まだありません';
+      document.getElementById('group-table').innerHTML = Object.keys(d.groups || {}).map(function (id) {
+        var g = d.groups[id] || {};
+        var n = (g.members && g.members.length) || 0;
+        return '<tr><td>' + (g.name || id) + '</td><td>' + id + '</td><td>' + n + '</td><td><button class="btn mini bad" data-gdel="' + id + '" type="button">解散</button></td></tr>';
+      }).join('') || '<tr><td colspan="4">グループはありません</td></tr>';
+      var mq = (document.getElementById('msg-q').value || '').trim();
+      document.getElementById('msg-table').innerHTML = (d.messages || []).filter(function (m) { return !mq || String(m.text || '').indexOf(mq) >= 0; }).slice(-40).reverse().map(function (m) {
+        return '<tr><td>' + (m.timestamp ? new Date(m.timestamp).toLocaleString('ja-JP') : '') + '</td><td>' + names(m.from) + '</td><td>' + names(m.to) + '</td><td>' + (m.text || '') + '</td><td><button class="btn mini bad" data-mdel="' + (m.msgId || '') + '" type="button">隠す</button></td></tr>';
+      }).join('') || '<tr><td colspan="5">メッセージはまだミラーにありません</td></tr>';
+      document.getElementById('stamp-table').innerHTML = (d.stamps || []).map(function (s) {
+        return '<tr><td>' + (s.name || '') + '</td><td>' + (s.id || '') + '</td><td>' + (s.price || 0) + '</td><td><button class="btn mini bad" data-sdel="' + (s.id || '') + '" type="button">外す</button></td></tr>';
+      }).join('') || '<tr><td colspan="4">スタンプはありません</td></tr>';
+      document.getElementById('cal-table').innerHTML = (d.calendarEvents || []).map(function (ev) {
+        return '<tr><td>' + (ev.title || ev.text || JSON.stringify(ev).slice(0,80)) + '</td><td>' + (ev.id || '') + '</td><td><button class="btn mini bad" data-cdel="' + (ev.id || '') + '" type="button">削除</button></td></tr>';
+      }).join('') || '<tr><td colspan="3">予定はありません</td></tr>';
+      document.getElementById('sched-log').textContent = (d.scheduledMessages || []).slice(-8).map(function (x) { return (x.id || '') + ' ' + (x.cancelled ? '取消' : '予約'); }).join('\n') || '予約はありません';
+      document.getElementById('report-log').textContent = (d.reports || []).slice(-8).map(function (x) { return (x.id || 'report') + ' ' + (x.resolved ? '対応済' : '未対応'); }).join('\n') || '通報はありません';
+      document.getElementById('export-box').textContent = JSON.stringify(d, null, 2);
+      document.getElementById('audit').textContent = (read(KEYS.audit) || []).slice(-12).map(function (x) { return new Date(x.at).toLocaleTimeString('ja-JP') + ' ' + x.text; }).join('\n') || 'まだありません';
+    }
+    function editor(id) {
+      state.selected = id;
+      var u = state.data.users[id] || {};
+      document.getElementById('user-editor').innerHTML = '<strong>' + names(id) + '</strong><div class="k">' + id + '</div>' +
+        '<label>名前<input id="ed-name" value="' + (u.name || '') + '"></label>' +
+        '<label>プラン<select id="ed-plan">' + ['free','bronze','silver','gold','platinum','diamond','master','legend'].map(function (p) { return '<option' + ((u.planId||'free')===p?' selected':'') + '>' + p + '</option>'; }).join('') + '</select></label>' +
+        '<div class="row"><button class="btn go" id="ed-save" type="button">名前とプランを保存</button><button class="btn warn" id="ed-block" type="button">' + (u.isBlocked ? '停止解除' : '停止') + '</button><button class="btn" id="ed-usage" type="button">利用時間リセット</button><button class="btn bad" id="ed-del" type="button">削除</button></div>';
+      document.getElementById('ed-save').onclick = function () {
+        needCreator(function () {
+          push('user.rename', { id:id, name:document.getElementById('ed-name').value.trim() }, '改名 ' + id);
+          push('user.plan', { id:id, planId:document.getElementById('ed-plan').value }, 'プラン ' + id);
+        });
+      };
+      document.getElementById('ed-block').onclick = function () { needCreator(function () { push('user.block', { id:id, blocked:!u.isBlocked }, (u.isBlocked?'解除 ':'停止 ') + id); }); };
+      document.getElementById('ed-usage').onclick = function () { push('user.usageReset', { id:id }, '利用時間リセット ' + id); };
+      document.getElementById('ed-del').onclick = function () { if (confirm('このユーザーを本体から外しますか？')) needCreator(function () { push('user.delete', { id:id }, '削除 ' + id); }); };
+    }
+    document.getElementById('btn-login').onclick = function () {
+      if (document.getElementById('user').value.trim() !== USER || document.getElementById('pass').value !== PASS) {
+        document.getElementById('gate-out').textContent = 'ユーザー名かパスワードが違います';
+        return;
+      }
+      sessionStorage.setItem('YM_ADMIN_PANEL', '1');
+      document.getElementById('gate').classList.add('hidden');
+      document.getElementById('app').classList.add('on');
+      loadAll();
+    };
+    document.getElementById('btn-exit').onclick = function () { sessionStorage.removeItem('YM_ADMIN_PANEL'); location.reload(); };
+    document.getElementById('btn-creator-back').onclick = function () { document.getElementById('creator-gate').classList.add('hidden'); document.getElementById('app').classList.add('on'); };
+    document.getElementById('btn-refresh').onclick = loadAll;
+    document.querySelectorAll('.tab').forEach(function (b) {
+      b.onclick = function () {
+        document.querySelectorAll('.tab').forEach(function (x) { x.classList.remove('on'); });
+        document.querySelectorAll('.view').forEach(function (v) { v.classList.remove('on'); });
+        b.classList.add('on');
+        document.getElementById(b.getAttribute('data-tab')).classList.add('on');
+        document.getElementById('title').textContent = b.textContent;
+      };
+    });
+    document.getElementById('btn-ann').onclick = function () { push('announce.set', { text: document.getElementById('ann').value.slice(0,1000), style: document.getElementById('ann-style').value }, 'お知らせ配信'); };
+    document.getElementById('btn-ann-clear').onclick = function () { push('announce.set', { text:'', style:'normal' }, 'お知らせ解除'); };
+    function coin(mode, sign) {
+      needCreator(function () {
+        var id = document.getElementById('coin-target').value.trim();
+        var n = Math.abs(Number(document.getElementById('coin-amount').value) || 0) * (sign || 1);
+        if (!id || !n) { alert('IDと枚数を入れてください'); return; }
+        push('user.coins', { id:id, amount: mode === 'set' ? Math.abs(Number(document.getElementById('coin-amount').value)||0) : n, mode: mode }, 'コイン ' + id);
+      });
+    }
+    document.getElementById('btn-plus').onclick = function () { coin('add', 1); };
+    document.getElementById('btn-minus').onclick = function () { coin('add', -1); };
+    document.getElementById('btn-set').onclick = function () { coin('set', 1); };
+    document.getElementById('btn-ntf').onclick = function () { push('notify.push', { title: document.getElementById('ntf-title').value, body: document.getElementById('ntf-body').value }, '通知'); };
+    document.getElementById('btn-maint-on').onclick = function () { push('maintenance.set', { on:true, text: document.getElementById('maint-text').value }, '点検開始'); };
+    document.getElementById('btn-maint-off').onclick = function () { push('maintenance.set', { on:false, text:'' }, '点検終了'); };
+    document.getElementById('btn-ver').onclick = function () { push('version.set', { version: document.getElementById('ver').value }, 'バージョン変更'); };
+    document.getElementById('btn-export').onclick = function () {
+      var blob = new Blob([document.getElementById('export-box').textContent], { type:'application/json' });
+      var a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = 'ym-admin-backup.json'; a.click();
+    };
+    document.getElementById('btn-copy').onclick = function () { navigator.clipboard.writeText(document.getElementById('export-box').textContent).then(function () { toast('コピーしました'); }); };
+    document.getElementById('btn-import').onclick = function () {
+      try {
+        var data = JSON.parse(document.getElementById('import-box').value || '{}');
+        mergeFrom(data, '読み込み');
+        if (data.systemAnnouncement) push('announce.set', { text: data.systemAnnouncement, style: data.systemAnnouncementStyle || 'normal' }, '読み込みお知らせ');
+        toast('読み込んだ内容を反映待ちにしました');
+      } catch (e) { alert('JSONを読めませんでした'); }
+    };
+    document.body.addEventListener('click', function (ev) {
+      var t = ev.target;
+      if (t && t.getAttribute('data-user')) editor(t.getAttribute('data-user'));
+      if (t && t.getAttribute('data-gdel')) needCreator(function () { push('group.delete', { id: t.getAttribute('data-gdel') }, 'グループ解散'); });
+      if (t && t.getAttribute('data-mdel')) push('message.delete', { msgId: t.getAttribute('data-mdel') }, 'メッセージ非表示');
+      if (t && t.getAttribute('data-sdel')) push('stamp.delete', { id: t.getAttribute('data-sdel') }, 'スタンプ削除');
+      if (t && t.getAttribute('data-cdel')) push('calendar.delete', { id: t.getAttribute('data-cdel') }, '予定削除');
+    });
+    document.getElementById('user-q').oninput = paint;
+    document.getElementById('msg-q').oninput = paint;
+    window.addEventListener('storage', loadAll);
+    setInterval(loadAll, 4000);
+    if (sessionStorage.getItem('YM_ADMIN_PANEL') === '1') {
+      document.getElementById('gate').classList.add('hidden');
+      document.getElementById('app').classList.add('on');
+      loadAll();
+    }
+  })();
+  </script>
+</body>
+</html>
